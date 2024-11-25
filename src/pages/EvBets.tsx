@@ -15,6 +15,7 @@ interface Bet {
   outcome_payout: number;
   EV: number;
   lastFoundAt: string;
+  participant: string;
 }
 
 const sportOptions = [
@@ -42,19 +43,19 @@ export default function EvBets() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch('/data.json');
+        const response = await fetch('/backend/data.json');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        setBets(data);
+        const betsArray = Array.isArray(data) ? data : Object.values(data);
+        setBets(betsArray);
         
-        // Set last found time if available
-        if (data.length > 0 && data[0].lastFoundAt) {
-          setLastFoundAt(new Date(data[0].lastFoundAt).toLocaleString());
+        if (betsArray.length > 0) {
+          setLastFoundAt(new Date(betsArray[0].lastFoundAt).toLocaleString());
         }
       } catch (error) {
-        console.error('Error loading arbitrage data:', error);
+        console.error('Error loading betting data:', error);
         setBets([]);
       }
     };
@@ -187,7 +188,7 @@ export default function EvBets() {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <div className="font-medium">{bet.participants[0]}</div>
+                        <div className="font-medium">{bet.participant}</div>
                         <div className="text-sm text-gray-400">
                           {bet.type}<br />
                           {bet.source}
@@ -198,7 +199,7 @@ export default function EvBets() {
                       {bet.implied_probability.toFixed(2)}%
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {bet.outcome_payout}
+                      {bet.outcome_payout.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 text-center text-green-500">
                       {bet.EV.toFixed(2)}%
