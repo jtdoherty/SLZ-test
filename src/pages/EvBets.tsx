@@ -18,6 +18,39 @@ const marketOptions = [
   { value: 'props', label: 'Player Props' },
 ];
 
+interface Bet {
+  key: string;
+  edge: string;
+  market_name: string;
+  competition_instance_name: string;
+  event_start_time: string;
+  sport: string;
+  participants: string[];
+  type: string;
+  source: string;
+  implied_probability: number;
+  outcome_payout: number;
+  EV: number;
+  lastFoundAt: string;
+  participant: string;
+  profit_potential: number;
+}
+
+const fetchArbitrageData = async () => {
+  try {
+    const response = await fetch('data.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const text = await response.text();
+    const data = text.trim().split('\n').map(line => JSON.parse(line));
+    return data;
+  } catch (error) {
+    console.error('Error loading arbitrage data:', error);
+    return [];
+  }
+};
+
 export default function EvBets() {
   const [selectedSport, setSelectedSport] = useState('all');
   const [selectedMarket, setSelectedMarket] = useState('moneyline');
