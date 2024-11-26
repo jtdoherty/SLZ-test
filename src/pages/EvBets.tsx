@@ -43,7 +43,7 @@ export default function EvBets() {
 
   const fetchArbitrageData = async () => {
     try {
-      const response = await fetch('/output7.json');
+      const response = await fetch('data.json');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
