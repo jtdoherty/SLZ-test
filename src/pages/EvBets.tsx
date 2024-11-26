@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, TrendingUp, DollarSign } from 'lucide-react';
 import Card from '../components/Card';
 import FilterSelect from '../components/FilterSelect';
@@ -38,12 +38,13 @@ interface Bet {
 
 const fetchArbitrageData = async () => {
   try {
-    const response = await fetch('data.json');
+    console.log('Fetching arbitrage data...');
+    const response = await fetch('/data.json');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const text = await response.text();
-    const data = text.trim().split('\n').map(line => JSON.parse(line));
+    const data = await response.json();
+    console.log('Fetched data:', data);
     return data;
   } catch (error) {
     console.error('Error loading arbitrage data:', error);
@@ -54,6 +55,29 @@ const fetchArbitrageData = async () => {
 export default function EvBets() {
   const [selectedSport, setSelectedSport] = useState('all');
   const [selectedMarket, setSelectedMarket] = useState('moneyline');
+  const [bets, setBets] = useState<Bet[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await fetchArbitrageData();
+        console.log('Setting bets:', data);
+        setBets(data);
+      } catch (err) {
+        console.error('Error loading data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Log the current state of bets
+  useEffect(() => {
+    console.log('Current bets:', bets);
+  }, [bets]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -111,13 +135,48 @@ export default function EvBets() {
       </div>
 
       <div className="bg-[#0f1219] rounded-lg shadow-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-800">
-          <h3 className="text-lg font-semibold">Current +EV Opportunities</h3>
+        <div className="grid grid-cols-5 gap-4 p-4 border-b border-gray-800 text-sm font-medium text-gray-400">
+          <div>EVENT</div>
+          <div>+EV BET</div>
+          <div>CONSENSUS IMPLIED PROBABILITY</div>
+          <div>+EV BET ODDS</div>
+          <div>ROI</div>
         </div>
-        <div className="p-6">
-          <div className="text-center text-gray-400 py-12">
-            <p>Select filters above to view available +EV betting opportunities.</p>
-          </div>
+        <div className="divide-y divide-gray-800">
+          {loading ? (
+            <div className="text-center text-gray-400 py-12">
+              <p>Loading betting opportunities...</p>
+            </div>
+          ) : bets.length > 0 ? (
+            bets.map((bet) => (
+              <div key={bet.key} className="grid grid-cols-5 gap-4 p-4 text-sm">
+                <div className="text-white">
+                  <div>{bet.market_name}</div>
+                  <div className="text-xs text-gray-400">{bet.competition_instance_name}</div>
+                  <div className="text-xs text-gray-400">
+                    {new Date(bet.event_start_time).toLocaleString()}
+                  </div>
+                </div>
+                <div className="text-white">
+                  {bet.participant || 'N/A'}
+                  <div className="text-xs text-gray-400">{bet.source}</div>
+                </div>
+                <div className="text-white text-center">
+                  {(bet.implied_probability).toFixed(2)}%
+                </div>
+                <div className="text-white text-center">
+                  {bet.outcome_payout}
+                </div>
+                <div className="text-emerald-400 text-center">
+                  +{(bet.EV).toFixed(2)}%
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-gray-400 py-12">
+              <p>No betting opportunities found matching your criteria.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
