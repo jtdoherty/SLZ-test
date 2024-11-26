@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { Calculator, TrendingUp, DollarSign } from 'lucide-react';
 import Card from '../components/Card';
@@ -15,7 +17,6 @@ interface Bet {
   outcome_payout: number;
   EV: number;
   lastFoundAt: string;
-  participant: string;
 }
 
 const sportOptions = [
@@ -38,47 +39,57 @@ export default function EvBets() {
   const [selectedMarket, setSelectedMarket] = useState('moneyline');
   const [minEdge, setMinEdge] = useState(2);
   const [bets, setBets] = useState<Bet[]>([]);
-  const [lastFoundAt, setLastFoundAt] = useState<string>('');
+  const [lastUpdate, setLastUpdate] = useState<string>('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/backend/data.json');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        const betsArray = Array.isArray(data) ? data : Object.values(data);
-        setBets(betsArray);
-        
-        if (betsArray.length > 0) {
-          setLastFoundAt(new Date(betsArray[0].lastFoundAt).toLocaleString());
-        }
-      } catch (error) {
-        console.error('Error loading betting data:', error);
-        setBets([]);
+  const fetchArbitrageData = async () => {
+    try {
+      const response = await fetch('/output7.json');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
-    fetchData();
-  }, []);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error loading arbitrage data:', error);
+      return [];
+    }
+  };
 
-  const filteredBets = React.useMemo(() => {
+  const filterAndSortBets = (bets: Bet[]) => {
     const currentDate = new Date();
     const sevenDaysFromNow = new Date(currentDate);
     sevenDaysFromNow.setDate(currentDate.getDate() + 7);
 
     return bets
-      .filter(bet => {
+      .filter((bet) => {
         const eventDate = new Date(bet.event_start_time);
-        const sportMatch = selectedSport === 'all' || bet.sport.toLowerCase() === selectedSport.toLowerCase();
-        const marketMatch = selectedMarket === 'all' || bet.type.toLowerCase().includes(selectedMarket.toLowerCase());
-        const dateMatch = eventDate >= currentDate && eventDate <= sevenDaysFromNow;
-        const evMatch = bet.EV >= minEdge;
-        
-        return sportMatch && marketMatch && dateMatch && evMatch;
+        const matchesSport = selectedSport === 'all' || bet.sport.toLowerCase() === selectedSport;
+        const matchesMarket = selectedMarket === 'all' || bet.type.toLowerCase().includes(selectedMarket);
+        const meetsEdge = bet.EV >= minEdge;
+        return eventDate >= currentDate && 
+               eventDate <= sevenDaysFromNow && 
+               matchesSport && 
+               matchesMarket && 
+               meetsEdge;
       })
       .sort((a, b) => b.EV - a.EV);
-  }, [bets, selectedSport, selectedMarket, minEdge]);
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      const data = await fetchArbitrageData();
+      const filteredData = filterAndSortBets(data);
+      setBets(filteredData);
+      
+      if (filteredData.length > 0) {
+        setLastUpdate(new Date(filteredData[0].lastFoundAt).toLocaleString());
+      }
+    };
+
+    loadData();
+    const interval = setInterval(loadData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [selectedSport, selectedMarket, minEdge]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -137,42 +148,38 @@ export default function EvBets() {
       </div>
 
       <div className="bg-[#0f1219] rounded-lg shadow-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+        <div className="px-6 py-4 border-b border-gray-800">
           <h3 className="text-lg font-semibold">Current +EV Opportunities</h3>
-          {lastFoundAt && (
-            <span className="text-sm text-gray-400">Last Updated: {lastFoundAt}</span>
+          {lastUpdate && (
+            <div className="text-sm text-gray-400">
+              Last Updated: {lastUpdate}
+            </div>
           )}
         </div>
-        <div className="overflow-x-auto">
-          {filteredBets.length > 0 ? (
-            <table className="w-full">
-              <thead className="bg-[#1a1f2e]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Event
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    +EV Bet
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Implied Probability
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Odds
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    EV
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {filteredBets.map((bet, index) => (
-                  <tr key={index} className="hover:bg-[#1a1f2e]">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium">{bet.market_name}</div>
+        <div className="p-6">
+          {bets.length === 0 ? (
+            <div className="text-center text-gray-400 py-12">
+              <p>No betting opportunities found matching your criteria.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="bg-[#1a1f2e] text-gray-400">
+                    <th className="px-4 py-2 text-left">Event</th>
+                    <th className="px-4 py-2 text-left">Details</th>
+                    <th className="px-4 py-2 text-center">Probability</th>
+                    <th className="px-4 py-2 text-center">Payout</th>
+                    <th className="px-4 py-2 text-center">ROI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bets.map((bet, index) => (
+                    <tr key={index} className="border-b border-gray-800 hover:bg-[#1a1f2e]">
+                      <td className="px-4 py-4">
+                        <div className="font-bold text-white">{bet.market_name}</div>
+                        <div className="text-sm text-gray-400">{bet.competition_instance_name}</div>
                         <div className="text-sm text-gray-400">
-                          {bet.competition_instance_name}<br />
                           {new Date(bet.event_start_time).toLocaleString('en-US', {
                             weekday: 'long',
                             hour: 'numeric',
@@ -181,36 +188,28 @@ export default function EvBets() {
                             timeZone: 'America/New_York',
                             month: 'short',
                             day: 'numeric'
-                          })} ET<br />
-                          {bet.sport}
+                          })} ET
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium">{bet.participant}</div>
-                        <div className="text-sm text-gray-400">
-                          {bet.type}<br />
-                          {bet.source}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {bet.implied_probability.toFixed(2)}%
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {bet.outcome_payout.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-center text-green-500">
-                      {bet.EV.toFixed(2)}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="text-center text-gray-400 py-12">
-              <p>No betting opportunities match your current filters.</p>
+                        <div className="text-sm text-gray-400">{bet.sport}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="font-bold text-white">{bet.participants[0]}</div>
+                        <div className="text-sm text-gray-400">{bet.type}</div>
+                        <div className="text-sm text-gray-400">{bet.source}</div>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="font-bold text-white">{bet.implied_probability.toFixed(2)}%</div>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="font-bold text-white">{bet.outcome_payout}</div>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        <div className="font-bold text-green-500">{bet.EV.toFixed(2)}%</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
