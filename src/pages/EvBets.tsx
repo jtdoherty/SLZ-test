@@ -6,6 +6,8 @@ import Card from '../components/Card';
 import FilterSelect from '../components/FilterSelect';
 
 interface Bet {
+  key: string;
+  edge: string;
   market_name: string;
   competition_instance_name: string;
   event_start_time: string;
@@ -17,6 +19,8 @@ interface Bet {
   outcome_payout: number;
   EV: number;
   lastFoundAt: string;
+  participant: string;
+  profit_potential: number;
 }
 
 const sportOptions = [
@@ -47,7 +51,8 @@ export default function EvBets() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
+      const text = await response.text();
+      const data = text.trim().split('\n').map(line => JSON.parse(line));
       return data;
     } catch (error) {
       console.error('Error loading arbitrage data:', error);
@@ -174,8 +179,8 @@ export default function EvBets() {
                   </tr>
                 </thead>
                 <tbody>
-                  {bets.map((bet, index) => (
-                    <tr key={index} className="border-b border-gray-800 hover:bg-[#1a1f2e]">
+                  {bets.map((bet) => (
+                    <tr key={bet.key} className="border-b border-gray-800 hover:bg-[#1a1f2e]">
                       <td className="px-4 py-4">
                         <div className="font-bold text-white">{bet.market_name}</div>
                         <div className="text-sm text-gray-400">{bet.competition_instance_name}</div>
@@ -193,7 +198,7 @@ export default function EvBets() {
                         <div className="text-sm text-gray-400">{bet.sport}</div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="font-bold text-white">{bet.participants[0]}</div>
+                        <div className="font-bold text-white">{bet.participant}</div>
                         <div className="text-sm text-gray-400">{bet.type}</div>
                         <div className="text-sm text-gray-400">{bet.source}</div>
                       </td>
@@ -204,7 +209,7 @@ export default function EvBets() {
                         <div className="font-bold text-white">{bet.outcome_payout}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <div className="font-bold text-green-500">{bet.EV.toFixed(2)}%</div>
+                        <div className="font-bold text-green-500">+{bet.EV.toFixed(2)}%</div>
                       </td>
                     </tr>
                   ))}
